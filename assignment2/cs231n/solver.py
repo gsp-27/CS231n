@@ -31,7 +31,7 @@ class Solver(object):
     'X_train': # training data
     'y_train': # training labels
     'X_val': # validation data
-    'X_train': # validation labels
+    'y_val': # validation labels
   }
   model = MyAwesomeModel(hidden_size=100, reg=10)
   solver = Solver(model, data,
@@ -107,16 +107,18 @@ class Solver(object):
     self.y_val = data['y_val']
     
     # Unpack keyword arguments
-    self.update_rule = kwargs.pop('update_rule', 'sgd')
-    self.optim_config = kwargs.pop('optim_config', {})
-    self.lr_decay = kwargs.pop('lr_decay', 1.0)
+    self.update_rule = kwargs.pop('update_rule', 'sgd') # kwargs is the dictionary that allows us to pass arbitrary number of named
+    # arguments, these arguments can either be accessed with kwargs.pop('key', default_val) or kwargs.get('key', default_val)
+    self.optim_config = kwargs.pop('optim_config', {}) # contains learning rate params
+    self.lr_decay = kwargs.pop('lr_decay', 1.0) 
     self.batch_size = kwargs.pop('batch_size', 100)
-    self.num_epochs = kwargs.pop('num_epochs', 10)
+    self.num_epochs = kwargs.pop('num_epochs', 10) # i dont understand what epochs are.
 
     self.print_every = kwargs.pop('print_every', 10)
     self.verbose = kwargs.pop('verbose', True)
 
-    # Throw an error if there are extra keyword arguments
+    # Throw an error if there are extra keyword arguments, okay after popping all these if there
+    # are extra items in the dictionary they are extra arguments and throw error for this
     if len(kwargs) > 0:
       extra = ', '.join('"%s"' % k for k in kwargs.keys())
       raise ValueError('Unrecognized arguments %s' % extra)
@@ -144,6 +146,9 @@ class Solver(object):
     self.val_acc_history = []
 
     # Make a deep copy of the optim_config for each parameter
+    # new variable called optim configs is created and it is a hash
+    # model params has all the w1, b1, w2, b2 and so on
+    # then there is a list comprehension, 
     self.optim_configs = {}
     for p in self.model.params:
       d = {k: v for k, v in self.optim_config.iteritems()}
@@ -156,21 +161,22 @@ class Solver(object):
     be called manually.
     """
     # Make a minibatch of training data
-    num_train = self.X_train.shape[0]
-    batch_mask = np.random.choice(num_train, self.batch_size)
-    X_batch = self.X_train[batch_mask]
+    num_train = self.X_train.shape[0] # here it is 49000
+    batch_mask = np.random.choice(num_train, self.batch_size) # these are the index we are going to pick for this round of
+    # of gradient update
+    X_batch = self.X_train[batch_mask] # get the data and store it in batch variables
     y_batch = self.y_train[batch_mask]
 
     # Compute loss and gradient
-    loss, grads = self.model.loss(X_batch, y_batch)
-    self.loss_history.append(loss)
+    loss, grads = self.model.loss(X_batch, y_batch) # calculate the loss and add to the history
+    self.loss_history.append(loss) # gives clues about the learning rate if very steep decrease then we are golden
 
     # Perform a parameter update
     for p, w in self.model.params.iteritems():
-      dw = grads[p]
-      config = self.optim_configs[p]
-      next_w, next_config = self.update_rule(w, dw, config)
-      self.model.params[p] = next_w
+      dw = grads[p] # derivate of current layer
+      config = self.optim_configs[p] # get configs
+      next_w, next_config = self.update_rule(w, dw, config) # update the params
+      self.model.params[p] = next_w # replace current with the updated params
       self.optim_configs[p] = next_config
 
 
@@ -179,10 +185,10 @@ class Solver(object):
     Check accuracy of the model on the provided data.
     
     Inputs:
-    - X: Array of data, of shape (N, d_1, ..., d_k)
-    - y: Array of labels, of shape (N,)
+    - X: Array of data, of shape (N, d_1, ..., d_k) d_1, d_k is the dimension of the data, here 32, 32, 3
+    - y: Array of labels, of shape (N,) 
     - num_samples: If not None, subsample the data and only test the model
-      on num_samples datapoints.
+      on num_samples datapoints. Done sometimes for optimisation
     - batch_size: Split X and y into batches of this size to avoid using too
       much memory.
       
@@ -192,25 +198,25 @@ class Solver(object):
     """
     
     # Maybe subsample the data
-    N = X.shape[0]
+    N = X.shape[0] # here it must be 49000
     if num_samples is not None and N > num_samples:
-      mask = np.random.choice(N, num_samples)
-      N = num_samples
-      X = X[mask]
+      mask = np.random.choice(N, num_samples) # generate the indices to choose
+      N = num_samples # reassign N to numsamples, not clear why
+      X = X[mask] # sub sample the training data
       y = y[mask]
 
     # Compute predictions in batches
-    num_batches = N / batch_size
-    if N % batch_size != 0:
+    num_batches = N / batch_size # okay if we have subsampled the data N=num_samples or complete training data
+    if N % batch_size != 0: # if N is not the multiple of batch size just increase the num_batches, no idea what this does
       num_batches += 1
-    y_pred = []
+    y_pred = [] # empty list that will store network predictions
     for i in xrange(num_batches):
       start = i * batch_size
       end = (i + 1) * batch_size
-      scores = self.model.loss(X[start:end])
-      y_pred.append(np.argmax(scores, axis=1))
-    y_pred = np.hstack(y_pred)
-    acc = np.mean(y_pred == y)
+      scores = self.model.loss(X[start:end]) # compute the loss or the predictions
+      y_pred.append(np.argmax(scores, axis=1)) # pick the prediction with the highest score
+    y_pred = np.hstack(y_pred) 
+    acc = np.mean(y_pred == y) # calculate 
 
     return acc
 
@@ -219,12 +225,14 @@ class Solver(object):
     """
     Run optimization to train the model.
     """
-    num_train = self.X_train.shape[0]
-    iterations_per_epoch = max(num_train / self.batch_size, 1)
-    num_iterations = self.num_epochs * iterations_per_epoch
+    num_train = self.X_train.shape[0] # now the function to train the data
+    # first compute the loss then the step and periodically check accuracy
+    iterations_per_epoch = max(num_train / self.batch_size, 1) # epoch means training over complete data, anyway the value here
+    # will be 490
+    num_iterations = self.num_epochs * iterations_per_epoch # if we run for 10 epochs then total iterations will be 4900
 
     for t in xrange(num_iterations):
-      self._step()
+      self._step() # computes loss over the batch updates the parameters
 
       # Maybe print training loss
       if self.verbose and t % self.print_every == 0:
@@ -233,11 +241,11 @@ class Solver(object):
 
       # At the end of every epoch, increment the epoch counter and decay the
       # learning rate.
-      epoch_end = (t + 1) % iterations_per_epoch == 0
+      epoch_end = (t + 1) % iterations_per_epoch == 0 # if current iteration is some multiple of iterations per epoch then we have completed a epoch
       if epoch_end:
-        self.epoch += 1
+        self.epoch += 1 # increment the epoch counter
         for k in self.optim_configs:
-          self.optim_configs[k]['learning_rate'] *= self.lr_decay
+          self.optim_configs[k]['learning_rate'] *= self.lr_decay # decay the learning rate
 
       # Check train and val accuracy on the first iteration, the last
       # iteration, and at the end of each epoch.
@@ -264,3 +272,11 @@ class Solver(object):
     # At the end of training swap the best params into the model
     self.model.params = self.best_params
 
+# organization of the train code
+# First computes the loss over a mini batch and then updates the parameters
+# check if the epoch is over, if it is then increments the epoch counter and 
+# also decays the learning rate.
+# then does some book keeping, the epochs are ending every 490 iterations here but in that time
+# we are assuming that we have passed one iteration over the complete dataset though we are
+# selecting the mask or the mini batches randomly, rationale behind this is after every 490 iteration and assuming mini-
+# batch size is 100 we would have chosen 49000 training examples hence one complete training set.

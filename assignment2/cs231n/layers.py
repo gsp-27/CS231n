@@ -161,7 +161,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
   running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
   running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
 
-  out, cache = None, None
+  out, cache = None, dict()
   if mode == 'train':
     #############################################################################
     # TODO: Implement the training-time forward pass for batch normalization.   #
@@ -176,7 +176,22 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    pass
+    _mean = np.mean(x, axis=0)
+    _var = np.var(x, axis=0)
+    assert "problem with mean computation", _mean.shape == D
+    assert "problem with variance computation", _var.shape == D
+    x_hat = x - _mean
+    x_hat = x_hat / (np.sqrt(_var + eps))
+    assert "dimensions of x should be N x D", x_hat.shape == (N, D)
+    out = gamma * x_hat + beta
+    running_mean = momentum * running_mean + (1- momentum) * _mean
+    running_var = momentum * running_var + (1 - momentum) * _var
+    cache['gamma'] = gamma
+    cache['x_hat'] = x_hat
+    cache['mean'] = _mean
+    cache['var'] = _var
+    cache['eps'] = eps
+    cache['x'] = x
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -187,7 +202,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # and shift the normalized data using gamma and beta. Store the result in   #
     # the out variable.                                                         #
     #############################################################################
-    pass
+    x_hat = x - running_mean
+    x_hat = x_hat / (np.sqrt(running_var + eps))
+    out = gamma * x_hat + beta
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
