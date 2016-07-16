@@ -236,11 +236,33 @@ def batchnorm_backward(dout, cache):
   - dbeta: Gradient with respect to shift parameter beta, of shape (D,)
   """
   dx, dgamma, dbeta = None, None, None
+  N, D = np.shape(dout)
   #############################################################################
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  pass
+  dx_hat = dout * cache['gamma'] # output should be NxD
+  assert "dimension mismatch x_hat",dx_hat.shape == (N, D)
+  
+  t1 = cache['x'] - cache['mean']
+  t2 = (-0.5)*((cache['var'] + cache['eps'])**(-1.5))
+  t1 = t1 * t2
+  d_var = np.sum(dx_hat * t1, axis=0)
+  assert "dimensional mismatch variance",d_var.shape == D
+
+  tmean1 = (-1)*((cache['var'] + cache['eps'])**(-0.5))
+  d_mean = np.sum(dx_hat * tmean1, axis=0)
+  assert "dimension mismatch mean", d_mean.shape == D
+
+  tmean1 = (-1)*tmean1
+  tx1 =   dx_hat * tmean1
+  tx2 = d_mean * (1.0 / float(N))
+  tx3 = d_var * (2 * (cache['x'] - cache['mean']) / N)
+  dx = tx1 + tx2 + tx3
+  assert "dimension mismatch x", dx.shape == (N, D)
+
+  dgamma = np.sum(dout * cache['x_hat'], axis=0)
+  dbeta = np.sum(dout, axis=0)
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
