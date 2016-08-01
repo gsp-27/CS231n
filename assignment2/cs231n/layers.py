@@ -419,7 +419,35 @@ def conv_forward_naive(x, w, b, conv_param):
   # TODO: Implement the convolutional forward pass.                           #
   # Hint: you can use the function np.pad for padding.                        #
   #############################################################################
-  pass
+  pad = conv_param['pad']
+  stride = conv_param['stride']
+  # getting the image and filter dimension
+  C, H, W = x[0].shape
+  C, HH, WW = w[0].shape
+
+  # calculate the width and height of the output blob
+  oH = 1 + (H + 2*pad - HH) / stride
+  oW = 1 + (W + 2*pad - WW) / stride
+  # the output array size
+  out = np.ndarray((x.shape[0], w.shape[0], oH, oW))
+  v = np.ndarray((w.shape[0], oH, oW))
+
+  # for each image, convolve it with all the filters
+  for i in range(x.shape[0]):
+    image = x[i]
+    npad = ((0,0), (pad, pad), (pad, pad))
+    image = np.pad(image, npad, mode='constant', constant_values=0)
+    for f in range(w.shape[0]):
+      kernel = w[f]
+      
+      for ii in range(oH):
+        hSt, hEnd = ii*stride, (ii*stride+HH)
+        for jj in range(oW):
+          wSt, wEnd = jj*stride, (jj*stride+WW)
+          patch = image[:, hSt:hEnd, wSt:wEnd]
+          v[f][ii][jj] = np.sum(patch * kernel) + b[f]
+    # Here i get a single image convolved with all the filters
+    out[i] = v
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
