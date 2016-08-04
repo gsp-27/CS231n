@@ -495,16 +495,42 @@ def max_pool_forward_naive(x, pool_param):
   - cache: (x, pool_param)
   """
   out = None
+  ph_ = pool_param['pool_height']
+  pw_ = pool_param['pool_width']
+  stride_ = pool_param['stride']
+  C, H, W = x[0].shape
+  oh_ = 1 + (H-ph_)/stride_
+  ow_ = 1 + (W-pw_)/stride_
+  out = np.ndarray((x.shape[0], x.shape[1], oh_, ow_))
+  max_idxs = list()
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  # get each image
+  for i in range(x.shape[0]):
+    im = x[i]
+
+    # get each filtered image blob
+    for c in range(im.shape[0]):
+      im_blob = im[c]
+
+      # for each patch of ph_*pw_ select the max in that area
+      for ii in range(oh_):
+        hst, hend = ii*stride_, (ii*stride_+ph_)
+        for jj in range(ow_):
+          wst, wend = jj*stride_, (jj*stride_+pw_)
+          im_patch = im_blob[hst:hend, wst:wend]
+          out[i][c][ii][jj] = np.max(im_patch)
+          # im_patch is a square slice of the image and from this I am getting
+          # max element, I use here argmax which will return me a single ele
+          # array giving me the max index which i then append to the list
+          a,b = np.unravel_index(im_patch.argmax(), im_patch.shape)
+          max_idxs.append((a,b))
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
-  cache = (x, pool_param)
+  cache = (x, pool_param, max_idxs)
   return out, cache
-
 
 def max_pool_backward_naive(dout, cache):
   """
@@ -518,10 +544,34 @@ def max_pool_backward_naive(dout, cache):
   - dx: Gradient with respect to x
   """
   dx = None
+  x, pool_param, max_idx = cache
+  ph_ = pool_param['pool_height']
+  pw_ = pool_param['pool_width']
+  stride_ = pool_param['stride']
+  dx = np.zeros_like(x)
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  # for each image
+  for i in range(dout.shape[0]):
+    image = dout[i]
+    dx_image = dx[i]
+
+    # for each channel
+    for c in range(image.shape[0]):
+      im_blob = image[c]
+      dx_blob = dx_image[c]
+
+      # we already have max index so index it
+      # and then set that index in dx to dout[ii][jj]
+      for ii in range(im_blob.shape[0]):
+        hst, hend = ii*stride_, ii*stride_+ph_
+        for jj in range(im_blob.shape[1]):
+          wst, wend = jj*stride_, jj*stride_+pw_
+          dx_patch = dx_blob[hst:hend, wst:wend]
+          a,b = max_idx[0]
+          max_idx = max_idx[1:]
+          dx_patch[a][b]= im_blob[ii][jj]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
