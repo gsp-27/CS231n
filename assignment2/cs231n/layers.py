@@ -469,10 +469,42 @@ def conv_backward_naive(dout, cache):
   - db: Gradient with respect to b
   """
   dx, dw, db = None, None, None
+  x, w, b, conv_param = cache
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+  HH, WW = w[0][0].shape
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  dx = np.zeros_like(x)
+  dw = np.zeros_like(w)
+  db = np.zeros_like(b)
+  print dx.shape, dw.shape, db.shape
+  N, C, H, W = dout.shape
+  for i in range(N):
+    # get the x and the error and pad the x
+    dim = dout[i]
+    im = x[i]
+    dxim = dx[i] # 3x5x5
+    npad = ((0,0), (pad, pad), (pad, pad))
+    im = np.pad(im, npad, mode='constant', constant_values=0)
+    dxim = np.pad(dxim, npad, mode='constant', constant_values=0)
+    # for each channel of the error, get the corresponding, flowing in error mat
+    # note that this would be same for filter (w) and the dout but different for
+    # the image
+    for c in range(C):
+      dim_blob = dim[c]
+      kernel = w[c]
+      
+      # from the matrix get the value of err and also the image patch
+      for ii in range(H):
+        hst, hend = ii*stride, ii*stride+HH
+        for jj in range(W):
+          wst, wend = jj*stride, jj*stride+WW
+          dw[c] += dim_blob[ii][jj]*im[:,hst:hend,wst:wend]
+          db[c] += dim_blob[ii][jj]
+          dxim[:, hst:hend, wst:wend] += dim_blob[ii][jj]*w[c]
+    dx[i] = dxim[:, 1:-1, 1:-1]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
