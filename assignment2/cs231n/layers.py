@@ -479,7 +479,6 @@ def conv_backward_naive(dout, cache):
   dx = np.zeros_like(x)
   dw = np.zeros_like(w)
   db = np.zeros_like(b)
-  print dx.shape, dw.shape, db.shape
   N, C, H, W = dout.shape
   for i in range(N):
     # get the x and the error and pad the x
@@ -738,3 +737,48 @@ def softmax_loss(x, y):
   dx[np.arange(N), y] -= 1
   dx /= N
   return loss, dx
+
+def parametric_relu_forward(x, a):
+  """
+  Computes the parametric relu activation forward pass
+  Inputs:
+  - x: Input data of shape (N, C, H, W)
+  - a: parameters of shape (C,)
+
+  Returns a tuple of:
+  - activations: y = max(0, x_i) + a_i*min(0, x_i)
+  - cache: two masks one for positive values and one for negative values
+  """
+  N,C,H,W = x.shape
+  mask_gzero = x > 0
+  assert mask_gzero.shape == x.shape
+  mask_lzero = x <= 0
+  assert mask_lzero.shape == x.shape
+  temp_a = np.tile(a, N*H*W).reshape(N,C,H,W)
+  assert temp_a.shape == x.shape
+  assert (mask_lzero*x).shape == x.shape
+  out = mask_gzero*x + temp_a*mask_lzero*x
+  cache = (x, a)
+  return out, cache
+
+def parametric_relu_backward(dout, cache):
+  """
+  Computes the backward pass of the parametric relu activation
+  as described in the paper "Delving deep into rectifiers" He et.al
+
+  Inputs:
+  - dout: upstream derivative
+  - cache: (x, a)
+
+  Outputs:
+  - dx: of shape same as dout
+  - da: of shape same as a
+  """
+  x, a = cache
+  N, C, H, W = x.shape
+  mask_gzero = x > 0
+  mask_lzero = x <= 0
+  temp_a = np.tile(a, N*H*W).reshape(N,C,H,W)
+  dx = dout*mask_gzero + temp_a*dout*mask_lzero
+  da = np.sum(dout*mask_lzero*x, axis=(0,2,3))
+  return dx, da
