@@ -46,7 +46,7 @@ class ThreeLayerConvNet(object):
     # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
     # of the output affine layer.                                              #
     ############################################################################
-    self.params['W1'] = (2.0/np.product(iDim)) * np.random.randn(64, 3,filter_size, filter_size)
+    self.params['W1'] = (2.0/np.product(iDim)) * np.random.randn(64, 3, filter_size, filter_size)
     self.params['b1'] = np.zeros(64)
     self.params['gamma1'] = np.ones(64)
     self.params['beta1'] = np.zeros(64)
@@ -165,31 +165,42 @@ class ThreeLayerConvNet(object):
 
     scores = None
     N = X.shape[0]
-    num_classes = W4.shape[0]
+    num_classes = 10
     ############################################################################
     # TODO: Implement the forward pass for the three-layer convolutional net,  #
     # computing the class scores for X and storing them in the scores          #
     # variable.                                                                #
     ############################################################################
     a1, c1 = conv_bn_relu_f(X, W1, b1, gamma1, beta1, ap1, conv_param, bn_params1)
+    assert a1.shape == (N, 64, 32, 32)
     a2, c2 = max_pool_forward_fast(a1, pool_param)
+    assert a2.shape == (N, 64, 16, 16)
 
     # second layer convolution and max pool
     a3, c3 = conv_bn_relu_f(a2, W2, b2, gamma2, beta2, ap2, conv_param, bn_params2)
+    assert a3.shape == (N, 128, 16, 16)
     a4, c4 = max_pool_forward_fast(a3, pool_param)
+    assert a4.shape == (N, 128, 8, 8)
 
     # third convoution layer and max pool
     a5, c5 = conv_bn_relu_f(a4, W3, b3, gamma3, beta3, ap3, conv_param, bn_params3)
+    assert a5.shape == (N, 256, 8, 8)
     a6, c6 = max_pool_forward_fast(a5, pool_param)
+    assert a6.shape == (N, 256, 4, 4)
 
     # fourth convolution layer and max pool
     a7, c7 = conv_bn_relu_f(a6, W4, b4, gamma4, beta4, ap4, conv_param, bn_params4)
+    assert a7.shape == (N, 512, 4, 4)
     a8, c8 = max_pool_forward_fast(a7, pool_param)
+    assert a8.shape == (N, 512, 2, 2)
 
     # first fully connected layer
     a9, c9 = conv_bn_relu_f(a8, W5, b5, gamma5, beta5, ap5, fc_param, bn_params5)
+    assert a9.shape == (N, 1024, 1, 1)
     a10, c10 = conv_bn_relu_f(a9, W6, b6, gamma6, beta6, ap6, fc_param, bn_params6)
+    assert a10.shape == (N, 2048, 1, 1)
     a11, c11 = conv_forward_fast(a10, W7, b7, fc_param)
+    assert a11.shape == (N, 10, 1, 1)
     a11 = a11.reshape(N, num_classes)
     
     scores = a11
@@ -219,7 +230,7 @@ class ThreeLayerConvNet(object):
     da8 = max_pool_backward_fast(da9, c8)
     da7, dw4, db4, dgamma4, dbeta4, da_p4 = conv_bn_relu_b(da8, c7)
     da6 = max_pool_backward_fast(da7, c6)
-    da5, dw3, db3, dgamma3, dbeta3, da_p3 = conv_bn_relu_b(da6, c6)
+    da5, dw3, db3, dgamma3, dbeta3, da_p3 = conv_bn_relu_b(da6, c5)
     da4 = max_pool_backward_fast(da5, c4)
     da3, dw2, db2, dgamma2, dbeta2, da_p2 = conv_bn_relu_b(da4, c3)
     da2 = max_pool_backward_fast(da3, c2)
