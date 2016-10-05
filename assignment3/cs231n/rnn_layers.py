@@ -74,7 +74,8 @@ def rnn_step_backward(dnext_h, cache):
   dprev_h = dz.dot(Wh.T)
   db = np.sum(dz, axis=0)
   #############################################################################
-  #                               END OF YOUR CODE                             #############################################################################
+  #                               END OF YOUR CODE                             
+  #############################################################################
   return dx, dprev_h, dWx, dWh, db
 
 
@@ -96,16 +97,29 @@ def rnn_forward(x, h0, Wx, Wh, b):
   - h: Hidden states for the entire timeseries, of shape (N, T, H).
   - cache: Values needed in the backward pass
   """
+  N, T, D = x.shape
+  H = h0.shape[1]
   h, cache = None, None
+  h = np.ndarray((T, N, H))
+  cache = [0]*T
+  # rnn_step_forward implements RNN functionality for one time step.
+  # I can use a for loop to do this for multiple steps.
   ##############################################################################
   # TODO: Implement forward pass for a vanilla RNN running on a sequence of    #
   # input data. You should use the rnn_step_forward function that you defined  #
   # above.                                                                     #
   ##############################################################################
-  pass
+  next_h = h0
+  x = np.transpose(x, (1,0,2))
+  for i in range(0, x.shape[0]):
+    curr_x = x[i]
+    prev_h = next_h
+    next_h, temp_cache = rnn_step_forward(curr_x, prev_h, Wx, Wh, b)
+    h[i], cache[i] = next_h, temp_cache
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
+  h = np.transpose(h, (1,0,2))
   return h, cache
 
 
@@ -124,15 +138,33 @@ def rnn_backward(dh, cache):
   - db: Gradient of biases, of shape (H,)
   """
   dx, dh0, dWx, dWh, db = None, None, None, None, None
+  N, T, H = dh.shape
+  D = cache[-1][0].shape[1] # will access the last element of cache, then the 
+  # first element of cache[-1] which is x, then third dimension of x which is D
   ##############################################################################
   # TODO: Implement the backward pass for a vanilla RNN running an entire      #
   # sequence of data. You should use the rnn_step_backward function that you   #
   # defined above.                                                             #
   ##############################################################################
-  pass
+  # first transpose the given dh
+  dh = np.transpose(dh, (1,0,2)) # now the dimensions are T,N,H
+  # declare dx to be dimensions of T,N,D
+  dx = np.zeros((T,N,D))
+  dWx = np.zeros((D, H))
+  dWh = np.zeros((H,H))
+  db = np.zeros(H)
+  d_prevh = np.zeros((N,H))
+  for i in reversed(range(T)):
+    curr_dh = dh[i] + d_prevh
+    dx[i], d_prevh, t_dWx, t_dWh, t_db = rnn_step_backward(curr_dh, cache[i])
+    if i==0: dh0 = d_prevh
+    dWx += t_dWx
+    dWh += t_dWh
+    db += t_db
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
+  dx = np.transpose(dx, (1,0,2)) # the dimension now becomes N,T,D
   return dx, dh0, dWx, dWh, db
 
 
