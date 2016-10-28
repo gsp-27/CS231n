@@ -176,7 +176,7 @@ def word_embedding_forward(x, W):
   
   Inputs:
   - x: Integer array of shape (N, T) giving indices of words. Each element idx
-    of x muxt be in the range 0 <= idx < V.
+    of x must be in the range 0 <= idx < V.
   - W: Weight matrix of shape (V, D) giving word vectors for all words.
   
   Returns a tuple of:
@@ -184,15 +184,25 @@ def word_embedding_forward(x, W):
   - cache: Values needed for the backward pass
   """
   out, cache = None, None
+  N, T = x.shape
+  V, D = W.shape
   ##############################################################################
   # TODO: Implement the forward pass for word embeddings.                      #
   #                                                                            #
   # HINT: This should be very simple.                                          #
   ##############################################################################
-  pass
+  # convert (N, T) to (N,T,V) with ones in positions of words, one hot vector,
+  # do the dot product along the third dimension and return the complete matrix
+  out = np.zeros((N,T,D))
+  for i in np.arange(N):
+    a = x[i]
+    b = np.zeros((T, V))
+    b[np.arange(T), a] = 1
+    out[i] = np.dot(b, W)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
+  cache = (x, V)
   return out, cache
 
 
@@ -211,15 +221,30 @@ def word_embedding_backward(dout, cache):
   Returns:
   - dW: Gradient of word embedding matrix, of shape (V, D).
   """
-  dW = None
+  N, T, D = dout.shape
+  x, V = cache
+  dW = np.zeros((V, D))
   ##############################################################################
   # TODO: Implement the backward pass for word embeddings.                     #
   #                                                                            #
   # HINT: Look up the function np.add.at                                       #
   ##############################################################################
-  pass
+  # first using the naive method of for loop
+  # for i in np.arange(N):
+  #   curr_x = x[i]
+  #   curr_dout = dout[i]
+  #   project_x = np.zeros((T, V))
+  #   project_x[np.arange(T), curr_x] = 1
+  #   val = np.dot(project_x.T, curr_dout)
+  #   dW += val
+
+  # a better way to do the same thing, what we are doing above is for every n
+  # updating the index of the word in the sentence with D dimension vector of
+  # dout, so in effect for all sentences we are only updating the weights of the
+  # word in the vocabulary that we have seen, and this makes sense too
+  np.add.at(dW, x, dout)
   ##############################################################################
-  #                               END OF YOUR CODE                             #
+  #                               END of YOUR CODE                             #
   ##############################################################################
   return dW
 
