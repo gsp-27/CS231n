@@ -229,7 +229,7 @@ def word_embedding_backward(dout, cache):
   #                                                                            #
   # HINT: Look up the function np.add.at                                       #
   ##############################################################################
-  # first using the naive method of for loop
+  #first using the naive method of for loop
   # for i in np.arange(N):
   #   curr_x = x[i]
   #   curr_dout = dout[i]
@@ -284,11 +284,32 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
   - cache: Tuple of values needed for backward pass.
   """
   next_h, next_c, cache = None, None, None
+  H = prev_h.shape[1]
   #############################################################################
   # TODO: Implement the forward pass for a single timestep of an LSTM.        #
   # You may want to use the numerically stable sigmoid implementation above.  #
   #############################################################################
-  pass
+  # Compute the transformation of input involved in all the gates in one shot
+  i2h = np.dot(x, Wx) # this will produce a Nx4H matrix of which first three
+  # entries are the gate results and last is the cell state result.
+  h2h = np.dot(prev_h, Wh) # again the same thing
+  pre_act = i2h + h2h + b
+
+  # separate out the three which use sigmoid activation from the last one which
+  # uses tanh activation
+  sig_act = pre_act[:, :3*H] # for all the N
+  tanh_act = pre_act[:, 3*H:] # for all the N
+  sig_act = sigmoid(sig_act)
+  tanh_act = np.tanh(tanh_act)
+
+  it = sig_act[:, 0:H]
+  ft = sig_act[:, H:2*H]
+  ot = sig_act[:, 2*H:3*H]
+  cin_t = tanh_act
+
+  next_c = ft * prev_c + it * cin_t
+  next_h = ot * np.tanh(next_c)
+  cache = (x, it, ft, ot, cin_t, next_c, next_h, prev_c, pre_act, prev_h, Wx, Wh)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -313,14 +334,59 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
   - dWh: Gradient of hidden-to-hidden weights, of shape (H, 4H)
   - db: Gradient of biases, of shape (4H,)
   """
-  dx, dh, dc, dWx, dWh, db = None, None, None, None, None, None
+  dx, dh, dc, dWx, dWh, db = 0.0, None, None, None, None, None
+  x, it, ft, ot, cin_t, next_c, next_h, prev_c, pre_act, prev_h, Wx, Wh = cache
+  dprev_h = 0.0
+  N, H = dnext_c.shape
+  D = x.shape[1]
+  dx = np.zeros((N,D))
+  dprev_h = np.zeros((N,H))
+  dWx = np.zeros((D, 4*H))
+  dWh = np.zeros((H, 4*H))
+  db = np.zeros((4*H))
   #############################################################################
   # TODO: Implement the backward pass for a single timestep of an LSTM.       #
   #                                                                           #
   # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
   # the output value from the nonlinearity.                                   #
   #############################################################################
-  pass
+  dOt = dnext_h * np.tanh(next_c)
+  dnext_c += ((ot * dnext_h) * (1 - np.tanh(next_c)**2))
+  dprev_c = ft * dnext_c 
+  dFt = dnext_c * prev_c
+  dIt = dnext_c * cin_t
+  dCin_t = it * dnext_c
+
+  # compute the dJ/dpre_it and the others where pre_it = x.Wx[0:H] + prev_h.Wh[0:H] + b[0:H]
+  dpre_it = dIt * sigmoid(pre_act[:, 0:H]) * (1 - sigmoid(pre_act[:, 0:H]))
+  dpre_ft = dFt * sigmoid(pre_act[:, H:2*H]) * (1 - sigmoid(pre_act[:, H:2*H]))
+  dpre_ot = dOt * sigmoid(pre_act[:, 2*H:3*H]) * (1 - sigmoid(pre_act[:, 2*H:3*H]))
+  dpre_cint = dCin_t * (1 - np.tanh(pre_act[:, 3*H:])**2)
+
+  # Now compute dWx and dWh based on the indices
+  dWx[:, 0:H] += (np.dot(x.T, dpre_it))
+  dWh[:, 0:H] += (np.dot(prev_h.T, dpre_it))
+  db[0:H] += np.sum(dpre_it, axis=0)
+  dx += (np.dot(dpre_it, Wx[:,0:H].T))
+  dprev_h += (np.dot(dpre_it, Wh[:,0:H].T))
+  
+  dWx[:, H:2*H] += (np.dot(x.T, dpre_ft))
+  dWh[:, H:2*H] += (np.dot(prev_h.T, dpre_ft))
+  db[H:2*H] += np.sum(dpre_ft, axis=0)
+  dx += (np.dot(dpre_ft, Wx[:,H:2*H].T))
+  dprev_h += (np.dot(dpre_ft, Wh[:,H:2*H].T))
+  
+  dWx[:, 2*H:3*H] += (np.dot(x.T, dpre_ot))
+  dWh[:, 2*H:3*H] += (np.dot(prev_h.T, dpre_ot))
+  db[2*H:3*H] += np.sum(dpre_ot, axis=0)
+  dx += (np.dot(dpre_ot, Wx[:,2*H:3*H].T))
+  dprev_h += (np.dot(dpre_ot, Wh[:,2*H:3*H].T))
+
+  dWx[:, 3*H:4*H] += (np.dot(x.T, dpre_cint))
+  dWh[:, 3*H:4*H] += (np.dot(prev_h.T, dpre_cint))
+  db[3*H:4*H] += np.sum(dpre_cint, axis=0)
+  dx += (np.dot(dpre_cint, Wx[:,3*H:4*H].T))
+  dprev_h += (np.dot(dpre_cint, Wh[:,3*H:4*H].T))
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
