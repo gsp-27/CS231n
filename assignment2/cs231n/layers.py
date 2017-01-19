@@ -782,3 +782,59 @@ def parametric_relu_backward(dout, cache):
   dx = dout*mask_gzero + temp_a*dout*mask_lzero
   da = np.sum(dout*mask_lzero*x, axis=(0,2,3))
   return dx, da
+
+def avg_pooling_forward(x, pool_params):
+  """
+    X: input of shape (N, C, H, W)
+    pool_params : a dictionary containing filter width, filter height,
+            and stride
+  """
+  N, C, H, W = x.shape
+  ph_ = pool_params['pool_height']
+  pw_ = pool_params['pool_width']
+  stride = pool_params['stride']
+
+  # compute the output height and width
+  _oh = (H - ph_) / stride + 1
+  _ow = (W - pw_) / stride + 1
+
+  # declare an output tensor which will hold values
+  out = np.zeros((N, C, _oh, _ow), dtype=np.float)
+
+  # fill the array with average pooling
+  for i in range(N):
+    for c in range(C):
+      for ii in range(_oh):
+        hst, hend = ii*stride, ii*stride+ph_
+        for jj in range(_ow):
+          wst, wend = jj*stride, jj*stride+pw_
+          # get the image patch
+          im_patch = x[i, c, hst:hend, wst:wend]
+          # sum this patch divide by ph*pw and assign it to output
+          out[i,c,ii,jj] = np.sum(im_patch) / (ph_*pw_)
+
+  return out, pool_params
+
+def avg_pooling_backward(dout, cache):
+  """
+    dout: numpy array of size(N, C, H, W)
+  """
+  # compute the size of the input tensor
+  N, C, _oh, _ow = dout.shape
+  ph_ = cache['pool_height']
+  pw_ = cache['pool_width']
+  stride = cache['stride']
+
+  H = (_oh - 1)*stride + ph_
+  W = (_ow - 1)*stride + pw_
+  dx = np.zeros((N, C, H, W), dtype=np.float)
+
+  for i in range(N):
+    for c in range(C):
+      for ii in range(_oh):
+        hst, hend = ii*stride, ii*stride+ph_
+        for jj in range(_ow):
+          wst, wend = jj*stride, jj*stride+pw_
+          dx[i,c,hst:hend, wst:wend] = dout[i,c,ii,jj]/(ph_*pw_)
+
+  return dx
