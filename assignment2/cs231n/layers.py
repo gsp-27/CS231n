@@ -430,8 +430,7 @@ def conv_forward_naive(x, w, b, conv_param):
   oW = 1 + (W + 2*pad - WW) / stride
   # the output array size
   out = np.ndarray((x.shape[0], w.shape[0], oH, oW))
-  v = np.ndarray((w.shape[0], oH, oW))
-
+  
   # for each image, convolve it with all the filters
   for i in range(x.shape[0]):
     image = x[i]
@@ -445,9 +444,7 @@ def conv_forward_naive(x, w, b, conv_param):
         for jj in range(oW):
           wSt, wEnd = jj*stride, (jj*stride+WW)
           patch = image[:, hSt:hEnd, wSt:wEnd]
-          v[f][ii][jj] = np.sum(patch * kernel) + b[f]
-    # Here i get a single image convolved with all the filters
-    out[i] = v
+          out[i, f, ii, jj] = np.sum(patch * kernel) + b[f]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
